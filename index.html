@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>F1 Stats</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f0f0f;
+      color: #f0f0f0;
+      min-height: 100vh;
+    }
+
+    .topbar {
+      background: #1a1a1a;
+      border-bottom: 1px solid #2a2a2a;
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 56px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .f1-badge {
+      background: #e10600;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 4px;
+      letter-spacing: 1px;
+    }
+
+    .logo-text {
+      font-size: 16px;
+      font-weight: 500;
+      color: #fff;
+    }
+
+    .season-sel {
+      background: #2a2a2a;
+      color: #f0f0f0;
+      border: 1px solid #3a3a3a;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .main { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 2rem;
+    }
+
+    .summary-card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+    }
+
+    .summary-card .label {
+      font-size: 11px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+
+    .summary-card .value {
+      font-size: 22px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .summary-card .sub {
+      font-size: 12px;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    .nav {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid #2a2a2a;
+      padding-bottom: 0;
+    }
+
+    .nav-btn {
+      background: transparent;
+      border: none;
+      color: #888;
+      font-size: 14px;
+      padding: 8px 16px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: all 0.15s;
+    }
+
+    .nav-btn:hover { color: #ccc; }
+
+    .nav-btn.active {
+      color: #fff;
+      border-bottom-color: #e10600;
+      font-weight: 500;
+    }
+
+    .tab { display: none; }
+    .tab.active { display: block; }
+
+    .section-label {
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th {
+      text-align: left;
+      padding: 8px 12px;
+      color: #666;
+      font-weight: 400;
+      font-size: 12px;
+      border-bottom: 1px solid #2a2a2a;
+    }
+
+    td {
+      padding: 12px 12px;
+      border-bottom: 1px solid #1e1e1e;
+      vertical-align: middle;
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #1a1a1a; }
+
+    .pos { color: #666; font-size: 12px; width: 32px; }
+    .driver-name { font-weight: 500; color: #fff; }
+    .team-name { font-size: 12px; color: #888; margin-top: 2px; }
+    .pts { font-weight: 600; color: #fff; }
+
+    .team-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+
+    .bar-wrap { display: flex; align-items: center; gap: 8px; }
+    .bar-bg { flex: 1; height: 5px; background: #2a2a2a; border-radius: 3px; overflow: hidden; min-width: 60px; }
+    .bar-fill { height: 100%; border-radius: 3px; }
+
+    .wins-pill {
+      display: inline-block;
+      background: rgba(225,6,0,0.15);
+      color: #e10600;
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 10px;
+      margin-left: 6px;
+      font-weight: 500;
+    }
+
+    .loading {
+      padding: 3rem;
+      text-align: center;
+      color: #555;
+      font-size: 14px;
+    }
+
+    .loading i { margin-right: 6px; }
+
+    .race-name { font-weight: 500; color: #fff; }
+    .race-circuit { font-size: 12px; color: #888; margin-top: 2px; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">
+    <span class="f1-badge">F1</span>
+    <span class="logo-text">Race Statistics</span>
+  </div>
+  <select class="season-sel" id="seasonSel"></select>
+</div>
+
+<div class="main">
+
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="label">Season</div>
+      <div class="value" id="sc-season">—</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Championship leader</div>
+      <div class="value" id="sc-leader" style="font-size:15px;padding-top:4px">—</div>
+      <div class="sub" id="sc-pts"></div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Rounds completed</div>
+      <div class="value" id="sc-rounds">—</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Drivers</div>
+      <div class="value" id="sc-drivers">—</div>
+    </div>
+  </div>
+
+  <div class="nav">
+    <button class="nav-btn active" data-tab="drivers">Driver standings</button>
+    <button class="nav-btn" data-tab="constructors">Constructors</button>
+    <button class="nav-btn" data-tab="races">Race results</button>
+  </div>
+
+  <div id="tab-drivers" class="tab active">
+    <div class="section-label">Driver championship standings</div>
+    <div id="driversBody"><div class="loading"><i class="ti ti-loader"></i> Loading standings...</div></div>
+  </div>
+
+  <div id="tab-constructors" class="tab">
+    <div class="section-label">Constructor standings</div>
+    <div id="constructorsBody"><div class="loading"><i class="ti ti-loader"></i> Loading...</div></div>
+  </div>
+
+  <div id="tab-races" class="tab">
+    <div class="section-label">Race winners by round</div>
+    <div id="racesBody"><div class="loading"><i class="ti ti-loader"></i> Loading...</div></div>
+  </div>
+
+</div>
+
+<script>
+  const TEAM_COLORS = {
+    'Red Bull': '#3671C6', 'Ferrari': '#E8002D', 'Mercedes': '#27F4D2',
+    'McLaren': '#FF8000', 'Aston Martin': '#229971', 'Alpine': '#0093CC',
+    'Williams': '#64C4FF', 'AlphaTauri': '#5E8FAA', 'RB': '#6692FF',
+    'Haas': '#B6BABD', 'Sauber': '#52E252', 'Kick Sauber': '#52E252',
+    'Racing Bulls': '#6692FF', 'Alpine F1 Team': '#0093CC'
+  };
+
+  function teamColor(name) {
+    for (const [k, v] of Object.entries(TEAM_COLORS)) {
+      if (name && name.includes(k)) return v;
+    }
+    return '#666';
+  }
+
+  const BASE = 'https://api.jolpi.ca/ergast/f1';
+  let season = new Date().getFullYear();
+  let cache = {};
+
+  async function api(path) {
+    if (cache[path]) return cache[path];
+    const r = await fetch(BASE + path + '?limit=100');
+    const d = await r.json();
+    cache[path] = d;
+    return d;
+  }
+
+  async function loadDrivers() {
+    const el = document.getElementById('driversBody');
+    try {
+      const d = await api('/' + season + '/driverStandings');
+      const standings = d.MRData.StandingsTable.StandingsLists[0]?.DriverStandings || [];
+      if (!standings.length) { el.innerHTML = '<div class="loading">No data yet for this season.</div>'; return; }
+
+      const maxPts = parseFloat(standings[0].points);
+      document.getElementById('sc-leader').textContent = standings[0].Driver.familyName;
+      document.getElementById('sc-pts').textContent = standings[0].points + ' pts';
+      document.getElementById('sc-drivers').textContent = standings.length;
+
+      let html = '<table><thead><tr><th>Pos</th><th>Driver</th><th>Team</th><th>Pts</th><th style="min-width:100px">Relative</th></tr></thead><tbody>';
+      standings.forEach(s => {
+        const pct = (parseFloat(s.points) / maxPts * 100).toFixed(1);
+        const col = teamColor(s.Constructors[0]?.name);
+        const wins = s.wins > 0 ? '<span class="wins-pill">' + s.wins + 'W</span>' : '';
+        html += '<tr>' +
+          '<td class="pos">' + s.position + '</td>' +
+          '<td><div class="driver-name">' + s.Driver.givenName[0] + '. ' + s.Driver.familyName + wins + '</div></td>' +
+          '<td><div class="team-name"><span class="team-dot" style="background:' + col + '"></span>' + (s.Constructors[0]?.name || '') + '</div></td>' +
+          '<td class="pts">' + s.points + '</td>' +
+          '<td><div class="bar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:' + pct + '%;background:' + col + '"></div></div></div></td>' +
+          '</tr>';
+      });
+      html += '</tbody></table>';
+      el.innerHTML = html;
+    } catch (e) {
+      el.innerHTML = '<div class="loading">Could not load data. Try refreshing.</div>';
+    }
+  }
+
+  async function loadConstructors() {
+    const el = document.getElementById('constructorsBody');
+    try {
+      const d = await api('/' + season + '/constructorStandings');
+      const standings = d.MRData.StandingsTable.StandingsLists[0]?.ConstructorStandings || [];
+      if (!standings.length) { el.innerHTML = '<div class="loading">No data yet.</div>'; return; }
+
+      const maxPts = parseFloat(standings[0].points);
+      let html = '<table><thead><tr><th>Pos</th><th>Constructor</th><th>Nationality</th><th>Pts</th><th style="min-width:100px">Relative</th></tr></thead><tbody>';
+      standings.forEach(s => {
+        const col = teamColor(s.Constructor.name);
+        const pct = (parseFloat(s.points) / maxPts * 100).toFixed(1);
+        const wins = s.wins > 0 ? '<span class="wins-pill">' + s.wins + 'W</span>' : '';
+        html += '<tr>' +
+          '<td class="pos">' + s.position + '</td>' +
+          '<td><div class="driver-name"><span class="team-dot" style="background:' + col + '"></span>' + s.Constructor.name + wins + '</div></td>' +
+          '<td><div class="team-name">' + s.Constructor.nationality + '</div></td>' +
+          '<td class="pts">' + s.points + '</td>' +
+          '<td><div class="bar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:' + pct + '%;background:' + col + '"></div></div></div></td>' +
+          '</tr>';
+      });
+      html += '</tbody></table>';
+      el.innerHTML = html;
+    } catch (e) {
+      el.innerHTML = '<div class="loading">Could not load data.</div>';
+    }
+  }
+
+  async function loadRaces() {
+    const el = document.getElementById('racesBody');
+    try {
+      const d = await api('/' + season + '/results/1');
+      const races = d.MRData.RaceTable.Races || [];
+      document.getElementById('sc-rounds').textContent = races.length;
+      if (!races.length) { el.innerHTML = '<div class="loading">No races yet this season.</div>'; return; }
+
+      let html = '<table><thead><tr><th>Rd</th><th>Grand Prix</th><th>Winner</th><th>Team</th><th>Date</th></tr></thead><tbody>';
+      [...races].reverse().forEach(r => {
+        const res = r.Results[0];
+        const col = teamColor(res?.Constructor?.name);
+        const date = new Date(r.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+        html += '<tr>' +
+          '<td class="pos">' + r.round + '</td>' +
+          '<td><div class="race-name">' + r.raceName.replace(' Grand Prix', '') + ' GP</div><div class="race-circuit">' + r.Circuit.circuitName + '</div></td>' +
+          '<td class="driver-name">' + (res ? res.Driver.givenName[0] + '. ' + res.Driver.familyName : '—') + '</td>' +
+          '<td><div class="team-name"><span class="team-dot" style="background:' + col + '"></span>' + (res?.Constructor?.name || '—') + '</div></td>' +
+          '<td class="team-name">' + date + '</td>' +
+          '</tr>';
+      });
+      html += '</tbody></table>';
+      el.innerHTML = html;
+    } catch (e) {
+      el.innerHTML = '<div class="loading">Could not load data.</div>';
+    }
+  }
+
+  function loadAll() {
+    loadDrivers();
+    loadConstructors();
+    loadRaces();
+  }
+
+  function init() {
+    const sel = document.getElementById('seasonSel');
+    for (let y = new Date().getFullYear(); y >= 2010; y--) {
+      const o = document.createElement('option');
+      o.value = y;
+      o.textContent = y;
+      sel.appendChild(o);
+    }
+    sel.value = season;
+    document.getElementById('sc-season').textContent = season;
+
+    sel.addEventListener('change', () => {
+      season = sel.value;
+      cache = {};
+      document.getElementById('sc-season').textContent = season;
+      document.getElementById('sc-leader').textContent = '—';
+      document.getElementById('sc-pts').textContent = '';
+      document.getElementById('sc-rounds').textContent = '—';
+      document.getElementById('sc-drivers').textContent = '—';
+      document.getElementById('driversBody').innerHTML = '<div class="loading">Loading...</div>';
+      document.getElementById('constructorsBody').innerHTML = '<div class="loading">Loading...</div>';
+      document.getElementById('racesBody').innerHTML = '<div class="loading">Loading...</div>';
+      loadAll();
+    });
+
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    loadAll();
+  }
+
+  init();
+</script>
+
+</body>
+</html>
