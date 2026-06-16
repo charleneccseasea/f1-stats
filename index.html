@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>F1 Stats</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
-  <a href="race.html" style="color:#ccc;text-decoration:none;font-size:13px;background:#2a2a2a;padding:6px 14px;border-radius:6px;margin-left:1rem;">Race analysis</a>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -14,25 +13,28 @@
       background: #0f0f0f;
       color: #f0f0f0;
       min-height: 100vh;
+      display: flex;
     }
 
-    .topbar {
+    .sidebar {
+      width: 200px;
+      min-height: 100vh;
       background: #1a1a1a;
-      border-bottom: 1px solid #2a2a2a;
-      padding: 0 2rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      height: 56px;
-      position: sticky;
+      border-right: 1px solid #2a2a2a;
+      padding: 1.5rem 1rem;
+      position: fixed;
       top: 0;
-      z-index: 10;
+      left: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     }
 
-    .logo {
+    .sidebar-logo {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
+      margin-bottom: 1.5rem;
     }
 
     .f1-badge {
@@ -45,13 +47,46 @@
       letter-spacing: 1px;
     }
 
-    .logo-text {
-      font-size: 16px;
+    .sidebar-title {
+      font-size: 15px;
       font-weight: 500;
       color: #fff;
     }
 
-    .season-sel {
+    .sidebar a {
+      text-decoration: none;
+      font-size: 14px;
+      padding: 8px 14px;
+      border-radius: 6px;
+      color: #888;
+      display: block;
+    }
+
+    .sidebar a:hover { color: #ccc; background: #222; }
+
+    .sidebar a.active {
+      color: #fff;
+      background: #2a2a2a;
+      border-left: 3px solid #e10600;
+    }
+
+    .main {
+      margin-left: 200px;
+      flex: 1;
+      max-width: 900px;
+      padding: 2rem 1.5rem;
+    }
+
+    .season-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 1.5rem;
+    }
+
+    .season-row label { font-size: 13px; color: #888; }
+
+    select {
       background: #2a2a2a;
       color: #f0f0f0;
       border: 1px solid #3a3a3a;
@@ -60,8 +95,6 @@
       font-size: 14px;
       cursor: pointer;
     }
-
-    .main { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
 
     .summary-grid {
       display: grid;
@@ -102,7 +135,6 @@
       gap: 6px;
       margin-bottom: 1.5rem;
       border-bottom: 1px solid #2a2a2a;
-      padding-bottom: 0;
     }
 
     .nav-btn {
@@ -136,11 +168,7 @@
       margin-bottom: 12px;
     }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
-    }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
 
     th {
       text-align: left;
@@ -195,24 +223,27 @@
       font-size: 14px;
     }
 
-    .loading i { margin-right: 6px; }
-
     .race-name { font-weight: 500; color: #fff; }
     .race-circuit { font-size: 12px; color: #888; margin-top: 2px; }
   </style>
 </head>
 <body>
 
-<div style="display:flex">
-
-<div style="width:200px;min-height:100vh;background:#1a1a1a;border-right:1px solid #2a2a2a;padding:1.5rem 1rem;position:fixed;top:0;left:0;display:flex;flex-direction:column;gap:6px;">
-  <div style="display:flex;align-items:center;gap:8px;margin-bottom:1.5rem;">
-    <span style="background:#e10600;color:#fff;font-size:13px;font-weight:700;padding:4px 10px;border-radius:4px;letter-spacing:1px;">F1</span>
-    <span style="font-size:15px;font-weight:500;color:#fff;">Stats</span>
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <span class="f1-badge">F1</span>
+    <span class="sidebar-title">Stats</span>
   </div>
-  <a href="index.html" style="color:#fff;text-decoration:none;font-size:14px;background:#2a2a2a;padding:8px 14px;border-radius:6px;border-left:3px solid #e10600;">Season standings</a>
-  <a href="race.html" style="color:#888;text-decoration:none;font-size:14px;padding:8px 14px;border-radius:6px;">Race analysis</a>
+  <a href="index.html" class="active">Season standings</a>
+  <a href="race.html">Race analysis</a>
 </div>
+
+<div class="main">
+
+  <div class="season-row">
+    <label>Season</label>
+    <select id="seasonSel"></select>
+  </div>
 
   <div class="summary-grid">
     <div class="summary-card">
@@ -242,17 +273,17 @@
 
   <div id="tab-drivers" class="tab active">
     <div class="section-label">Driver championship standings</div>
-    <div id="driversBody"><div class="loading"><i class="ti ti-loader"></i> Loading standings...</div></div>
+    <div id="driversBody"><div class="loading">Loading standings...</div></div>
   </div>
 
   <div id="tab-constructors" class="tab">
     <div class="section-label">Constructor standings</div>
-    <div id="constructorsBody"><div class="loading"><i class="ti ti-loader"></i> Loading...</div></div>
+    <div id="constructorsBody"><div class="loading">Loading...</div></div>
   </div>
 
   <div id="tab-races" class="tab">
     <div class="section-label">Race winners by round</div>
-    <div id="racesBody"><div class="loading"><i class="ti ti-loader"></i> Loading...</div></div>
+    <div id="racesBody"><div class="loading">Loading...</div></div>
   </div>
 
 </div>
@@ -418,6 +449,6 @@
 
   init();
 </script>
-</div>
+
 </body>
 </html>
