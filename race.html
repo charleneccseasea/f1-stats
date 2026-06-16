@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>F1 Race Analysis</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: #f0f0f0; min-height: 100vh; }
+
+    .topbar {
+      background: #1a1a1a; border-bottom: 1px solid #2a2a2a;
+      padding: 0 2rem; display: flex; align-items: center;
+      justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 10;
+    }
+    .logo { display: flex; align-items: center; gap: 10px; }
+    .f1-badge { background: #e10600; color: #fff; font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 4px; letter-spacing: 1px; }
+    .logo-text { font-size: 16px; font-weight: 500; color: #fff; }
+    .topbar-right { display: flex; gap: 10px; align-items: center; }
+    .back-link { color: #888; font-size: 13px; text-decoration: none; }
+    .back-link:hover { color: #fff; }
+
+    select {
+      background: #2a2a2a; color: #f0f0f0; border: 1px solid #3a3a3a;
+      border-radius: 6px; padding: 6px 12px; font-size: 14px; cursor: pointer;
+    }
+
+    .main { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+    .controls-bar {
+      display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+      background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px;
+      padding: 1rem 1.25rem; margin-bottom: 1.5rem;
+    }
+    .controls-bar label { font-size: 13px; color: #888; margin-right: 4px; }
+
+    .btn {
+      background: #e10600; color: #fff; border: none; border-radius: 6px;
+      padding: 8px 18px; font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .race-title {
+      font-size: 20px; font-weight: 600; color: #fff; margin-bottom: 0.25rem;
+    }
+    .race-sub { font-size: 13px; color: #666; margin-bottom: 1.5rem; }
+
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+    @media (max-width: 640px) { .grid2 { grid-template-columns: 1fr; } }
+
+    .card {
+      background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 1.25rem;
+    }
+    .card-title { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1rem; }
+
+    .chart-wrap { position: relative; height: 320px; }
+    .chart-wrap-tall { position: relative; height: 420px; }
+
+    .podium { display: flex; align-items: flex-end; gap: 8px; justify-content: center; padding: 1rem 0; }
+    .podium-step { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .podium-block {
+      width: 80px; border-radius: 6px 6px 0 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 700; color: #fff;
+    }
+    .podium-name { font-size: 12px; color: #ccc; text-align: center; font-weight: 500; }
+    .podium-team { font-size: 11px; color: #666; text-align: center; }
+    .p1 { height: 100px; background: #c9a227; }
+    .p2 { height: 70px; background: #6c757d; }
+    .p3 { height: 50px; background: #944f00; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 6px 10px; color: #555; font-weight: 400; font-size: 11px; border-bottom: 1px solid #2a2a2a; text-transform: uppercase; }
+    td { padding: 10px 10px; border-bottom: 1px solid #1e1e1e; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #222; }
+
+    .pos-badge {
+      display: inline-block; width: 22px; height: 22px; border-radius: 50%;
+      background: #2a2a2a; color: #888; font-size: 11px; font-weight: 600;
+      text-align: center; line-height: 22px;
+    }
+    .pos-badge.p1b { background: #c9a22722; color: #c9a227; }
+    .pos-badge.p2b { background: #6c757d22; color: #aaa; }
+    .pos-badge.p3b { background: #944f0022; color: #c47a30; }
+
+    .team-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+    .driver-name { font-weight: 500; color: #fff; }
+    .muted { color: #666; }
+
+    .pit-stop { display: inline-block; background: #e1060015; color: #e10600; font-size: 10px; padding: 1px 6px; border-radius: 8px; margin-left: 4px; }
+
+    .stat-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #1e1e1e; font-size: 13px; }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-key { color: #888; }
+    .stat-val { color: #fff; font-weight: 500; }
+
+    .loading { padding: 3rem; text-align: center; color: #555; font-size: 14px; }
+    .empty { padding: 2rem; text-align: center; color: #555; font-size: 13px; }
+
+    .tabs { display: flex; gap: 0; margin-bottom: 1.5rem; border-bottom: 1px solid #2a2a2a; }
+    .tab-btn { background: transparent; border: none; color: #666; font-size: 14px; padding: 10px 18px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; }
+    .tab-btn:hover { color: #ccc; }
+    .tab-btn.active { color: #fff; border-bottom-color: #e10600; font-weight: 500; }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 1rem; }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #888; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">
+    <span class="f1-badge">F1</span>
+    <span class="logo-text">Race Analysis</span>
+  </div>
+  <div class="topbar-right">
+    <a href="index.html" class="back-link">← Season standings</a>
+  </div>
+</div>
+
+<div class="main">
+
+  <div class="controls-bar">
+    <label>Season</label>
+    <select id="seasonSel"></select>
+    <label>Round</label>
+    <select id="roundSel"><option value="">— pick season first —</option></select>
+    <button class="btn" id="loadBtn" disabled>Load race</button>
+  </div>
+
+  <div id="content"><div class="empty">Select a season and round above, then click Load race.</div></div>
+
+</div>
+
+<script>
+const TEAM_COLORS = {
+  'Red Bull': '#3671C6', 'Ferrari': '#E8002D', 'Mercedes': '#27F4D2',
+  'McLaren': '#FF8000', 'Aston Martin': '#229971', 'Alpine': '#0093CC',
+  'Williams': '#64C4FF', 'AlphaTauri': '#5E8FAA', 'RB': '#6692FF',
+  'Haas': '#B6BABD', 'Sauber': '#52E252', 'Kick Sauber': '#52E252',
+  'Racing Bulls': '#6692FF', 'Alpine F1 Team': '#0093CC', 'Force India': '#FF80C7',
+  'Renault': '#FFD800', 'Toro Rosso': '#469BFF', 'Lotus': '#FFB800'
+};
+function teamColor(name) {
+  for (const [k,v] of Object.entries(TEAM_COLORS)) if (name && name.includes(k)) return v;
+  return '#888';
+}
+
+const BASE = 'https://api.jolpi.ca/ergast/f1';
+let charts = [];
+
+function destroyCharts() { charts.forEach(c => c.destroy()); charts = []; }
+
+async function api(path) {
+  const r = await fetch(BASE + path + (path.includes('?') ? '&' : '?') + 'limit=100');
+  return r.json();
+}
+
+async function populateSeasons() {
+  const sel = document.getElementById('seasonSel');
+  for (let y = new Date().getFullYear(); y >= 2010; y--) {
+    const o = document.createElement('option');
+    o.value = y; o.textContent = y; sel.appendChild(o);
+  }
+  sel.addEventListener('change', loadRounds);
+  loadRounds();
+}
+
+async function loadRounds() {
+  const season = document.getElementById('seasonSel').value;
+  const roundSel = document.getElementById('roundSel');
+  roundSel.innerHTML = '<option>Loading...</option>';
+  document.getElementById('loadBtn').disabled = true;
+  try {
+    const d = await api('/' + season + '/races');
+    const races = d.MRData.RaceTable.Races;
+    roundSel.innerHTML = '';
+    races.forEach(r => {
+      const o = document.createElement('option');
+      o.value = r.round;
+      o.textContent = r.round + ' — ' + r.raceName.replace(' Grand Prix', ' GP');
+      roundSel.appendChild(o);
+    });
+    document.getElementById('loadBtn').disabled = false;
+  } catch(e) {
+    roundSel.innerHTML = '<option>Error loading</option>';
+  }
+}
+
+async function loadRace() {
+  const season = document.getElementById('seasonSel').value;
+  const round = document.getElementById('roundSel').value;
+  const btn = document.getElementById('loadBtn');
+  btn.disabled = true;
+  btn.textContent = 'Loading...';
+  destroyCharts();
+  document.getElementById('content').innerHTML = '<div class="loading">Fetching race data...</div>';
+
+  try {
+    const [resultsData, lapsData, pitsData] = await Promise.all([
+      api('/' + season + '/' + round + '/results'),
+      api('/' + season + '/' + round + '/laps?limit=2000'),
+      api('/' + season + '/' + round + '/pitstops')
+    ]);
+
+    const race = resultsData.MRData.RaceTable.Races[0];
+    const results = race.Results;
+    const laps = lapsData.MRData.RaceTable.Races[0]?.Laps || [];
+    const pits = pitsData.MRData.RaceTable.Races[0]?.PitStops || [];
+
+    renderRace(race, results, laps, pits);
+  } catch(e) {
+    document.getElementById('content').innerHTML = '<div class="empty">Could not load race data. Try another round.</div>';
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Load race';
+}
+
+function msToTime(ms) {
+  if (!ms) return '—';
+  const m = Math.floor(ms / 60000);
+  const s = ((ms % 60000) / 1000).toFixed(3);
+  return m + ':' + s.padStart(6,'0');
+}
+
+function timeToMs(t) {
+  if (!t) return null;
+  const parts = t.split(':');
+  if (parts.length === 2) return parseFloat(parts[0]) * 60000 + parseFloat(parts[1]) * 1000;
+  return parseFloat(t) * 1000;
+}
+
+function renderRace(race, results, laps, pits) {
+  const top3 = results.slice(0,3);
+
+  // Build pit stop lookup: driverId -> [lap numbers]
+  const pitMap = {};
+  pits.forEach(p => {
+    if (!pitMap[p.driverId]) pitMap[p.driverId] = [];
+    pitMap[p.driverId].push(parseInt(p.lap));
+  });
+
+  // Build lap-by-lap positions
+  const driverOrder = results.map(r => r.Driver.driverId);
+  const positionByLap = {}; // driverId -> [pos per lap]
+  driverOrder.forEach(id => positionByLap[id] = []);
+
+  laps.forEach(lap => {
+    lap.Timings.forEach(t => {
+      if (positionByLap[t.driverId] !== undefined) {
+        positionByLap[t.driverId].push(parseInt(t.position));
+      }
+    });
+  });
+
+  const numLaps = laps.length;
+  const lapNums = Array.from({length: numLaps}, (_, i) => i + 1);
+
+  // Lap time data for top 10
+  const lapTimesByDriver = {};
+  laps.forEach(lap => {
+    lap.Timings.forEach(t => {
+      if (!lapTimesByDriver[t.driverId]) lapTimesByDriver[t.driverId] = [];
+      lapTimesByDriver[t.driverId].push(timeToMs(t.time));
+    });
+  });
+
+  const top10 = results.slice(0, 10).map(r => r.Driver.driverId);
+
+  // HTML
+  const html = `
+    <div class="race-title">${race.raceName}</div>
+    <div class="race-sub">${race.Circuit.circuitName} &nbsp;·&nbsp; ${new Date(race.date).toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'})}</div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-pane="overview">Overview</button>
+      <button class="tab-btn" data-pane="positions">Position tracker</button>
+      <button class="tab-btn" data-pane="laptimes">Lap times</button>
+      <button class="tab-btn" data-pane="pitstops">Pit stops</button>
+    </div>
+
+    <div id="pane-overview" class="tab-pane active">
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title">Podium</div>
+          <div class="podium">
+            <div class="podium-step">
+              <div class="podium-name">${top3[1]?.Driver.familyName||'—'}</div>
+              <div class="podium-team muted" style="font-size:11px">${top3[1]?.Constructor.name||''}</div>
+              <div class="podium-block p2">2</div>
+            </div>
+            <div class="podium-step">
+              <div class="podium-name">${top3[0]?.Driver.familyName||'—'}</div>
+              <div class="podium-team muted" style="font-size:11px">${top3[0]?.Constructor.name||''}</div>
+              <div class="podium-block p1">1</div>
+            </div>
+            <div class="podium-step">
+              <div class="podium-name">${top3[2]?.Driver.familyName||'—'}</div>
+              <div class="podium-team muted" style="font-size:11px">${top3[2]?.Constructor.name||''}</div>
+              <div class="podium-block p3">3</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Race info</div>
+          ${[
+            ['Circuit', race.Circuit.circuitName],
+            ['Location', race.Circuit.Location.locality + ', ' + race.Circuit.Location.country],
+            ['Total laps', numLaps || results[0]?.laps || '—'],
+            ['Winner time', results[0]?.Time?.time || results[0]?.status || '—'],
+            ['Fastest lap', results.find(r=>r.FastestLap?.rank==='1') ? results.find(r=>r.FastestLap?.rank==='1').Driver.familyName + ' — ' + results.find(r=>r.FastestLap?.rank==='1').FastestLap.Time.time : '—'],
+          ].map(([k,v]) => `<div class="stat-row"><span class="stat-key">${k}</span><span class="stat-val">${v}</span></div>`).join('')}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Full results</div>
+        <table>
+          <thead><tr><th>Pos</th><th>Driver</th><th>Team</th><th>Laps</th><th>Gap / Status</th><th>Pts</th></tr></thead>
+          <tbody>
+            ${results.map(r => {
+              const col = teamColor(r.Constructor.name);
+              const pb = r.position==='1'?'p1b':r.position==='2'?'p2b':r.position==='3'?'p3b':'';
+              const pitsCount = (pitMap[r.Driver.driverId]||[]).length;
+              const pitsLabel = pitsCount > 0 ? `<span class="pit-stop">${pitsCount} stop${pitsCount>1?'s':''}</span>` : '';
+              const gap = r.position==='1' ? r.Time?.time||r.status : (r.Time?.time ? '+'+r.Time.time : r.status);
+              return `<tr>
+                <td><span class="pos-badge ${pb}">${r.position}</span></td>
+                <td><span class="driver-name">${r.Driver.givenName[0]}. ${r.Driver.familyName}</span>${pitsLabel}</td>
+                <td><span class="muted"><span class="team-dot" style="background:${col}"></span>${r.Constructor.name}</span></td>
+                <td class="muted">${r.laps}</td>
+                <td class="muted" style="font-size:12px">${gap}</td>
+                <td style="font-weight:500;color:#fff">${r.points}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="pane-positions" class="tab-pane">
+      <div class="card">
+        <div class="card-title">Position changes — lap by lap (top 10)</div>
+        <div class="legend" id="posLegend"></div>
+        <div class="chart-wrap-tall"><canvas id="posChart"></canvas></div>
+      </div>
+    </div>
+
+    <div id="pane-laptimes" class="tab-pane">
+      <div class="card">
+        <div class="card-title">Lap times — top 10 drivers</div>
+        <div class="legend" id="lapLegend"></div>
+        <div class="chart-wrap-tall"><canvas id="lapChart"></canvas></div>
+        <div class="muted" style="font-size:12px;margin-top:8px">Outliers (pit in/out laps) are filtered for clarity.</div>
+      </div>
+    </div>
+
+    <div id="pane-pitstops" class="tab-pane">
+      <div class="card">
+        <div class="card-title">Pit stop summary</div>
+        ${pits.length === 0 ? '<div class="empty">No pit stop data for this race.</div>' : `
+        <table>
+          <thead><tr><th>Driver</th><th>Stop</th><th>Lap</th><th>Duration</th><th>Time of day</th></tr></thead>
+          <tbody>
+            ${pits.sort((a,b) => parseInt(a.lap)-parseInt(b.lap)).map(p => {
+              const res = results.find(r => r.Driver.driverId === p.driverId);
+              const col = teamColor(res?.Constructor?.name);
+              return `<tr>
+                <td><span class="team-dot" style="background:${col}"></span><span class="driver-name">${res?.Driver.givenName[0]||''}. ${res?.Driver.familyName||p.driverId}</span></td>
+                <td class="muted">${p.stop}</td>
+                <td style="font-weight:500;color:#fff">Lap ${p.lap}</td>
+                <td style="color:#e10600;font-weight:500">${p.duration}s</td>
+                <td class="muted">${p.time}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>`}
+      </div>
+    </div>
+  `;
+
+  document.getElementById('content').innerHTML = html;
+
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('pane-' + btn.dataset.pane).classList.add('active');
+      if (btn.dataset.pane === 'positions') renderPosChart(results, positionByLap, lapNums, top10);
+      if (btn.dataset.pane === 'laptimes') renderLapChart(results, lapTimesByDriver, lapNums, top10);
+    });
+  });
+}
+
+function renderPosChart(results, positionByLap, lapNums, top10) {
+  if (document.getElementById('posChart')._chartInstance) return;
+  const legend = document.getElementById('posLegend');
+  const datasets = top10.map(id => {
+    const res = results.find(r => r.Driver.driverId === id);
+    const col = teamColor(res?.Constructor?.name);
+    const name = (res?.Driver.givenName[0]||'') + '. ' + (res?.Driver.familyName||id);
+    legend.innerHTML += `<div class="legend-item"><div class="legend-dot" style="background:${col}"></div>${name}</div>`;
+    return {
+      label: name,
+      data: positionByLap[id] || [],
+      borderColor: col,
+      backgroundColor: col + '22',
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.3,
+    };
+  });
+
+  const ctx = document.getElementById('posChart').getContext('2d');
+  const c = new Chart(ctx, {
+    type: 'line',
+    data: { labels: lapNums, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        y: { reverse: true, min: 1, max: 20, ticks: { color: '#666', stepSize: 1 }, grid: { color: '#1e1e1e' } },
+        x: { ticks: { color: '#666', maxTicksLimit: 15 }, grid: { color: '#1e1e1e' } }
+      },
+      plugins: { legend: { display: false } },
+      interaction: { mode: 'index', intersect: false }
+    }
+  });
+  document.getElementById('posChart')._chartInstance = true;
+  charts.push(c);
+}
+
+function renderLapChart(results, lapTimesByDriver, lapNums, top10) {
+  if (document.getElementById('lapChart')._chartInstance) return;
+  const legend = document.getElementById('lapLegend');
+
+  const datasets = top10.map(id => {
+    const res = results.find(r => r.Driver.driverId === id);
+    const col = teamColor(res?.Constructor?.name);
+    const name = (res?.Driver.givenName[0]||'') + '. ' + (res?.Driver.familyName||id);
+    legend.innerHTML += `<div class="legend-item"><div class="legend-dot" style="background:${col}"></div>${name}</div>`;
+
+    const times = (lapTimesByDriver[id] || []).map(ms => ms ? ms / 1000 : null);
+    // Filter outliers (pit laps — usually 30%+ slower than median)
+    const valid = times.filter(t => t !== null);
+    const sorted = [...valid].sort((a,b) => a-b);
+    const median = sorted[Math.floor(sorted.length/2)] || 90;
+    const filtered = times.map(t => (t && t < median * 1.3) ? t : null);
+
+    return {
+      label: name,
+      data: filtered,
+      borderColor: col,
+      borderWidth: 1.5,
+      pointRadius: 0,
+      tension: 0.2,
+      spanGaps: false,
+    };
+  });
+
+  const ctx = document.getElementById('lapChart').getContext('2d');
+  const c = new Chart(ctx, {
+    type: 'line',
+    data: { labels: lapNums, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        y: {
+          ticks: {
+            color: '#666',
+            callback: v => {
+              const m = Math.floor(v / 60);
+              const s = (v % 60).toFixed(1);
+              return m + ':' + s.padStart(4,'0');
+            }
+          },
+          grid: { color: '#1e1e1e' }
+        },
+        x: { ticks: { color: '#666', maxTicksLimit: 15 }, grid: { color: '#1e1e1e' } }
+      },
+      plugins: { legend: { display: false } },
+      interaction: { mode: 'index', intersect: false }
+    }
+  });
+  document.getElementById('lapChart')._chartInstance = true;
+  charts.push(c);
+}
+
+document.getElementById('loadBtn').addEventListener('click', loadRace);
+populateSeasons();
+</script>
+</body>
+</html>
