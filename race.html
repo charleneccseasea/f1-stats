@@ -220,16 +220,30 @@ async function loadRace() {
   btn.textContent = 'Load race';
 }
 
+async function tryWikiPhoto(query) {
+  try {
+    const url = 'https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(query);
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.thumbnail?.source || null;
+  } catch(e) { return null; }
+}
+
 async function fetchDriverPhotos(top3) {
   const photos = {};
   await Promise.all(top3.map(async r => {
-    try {
-      const name = r.Driver.givenName + ' ' + r.Driver.familyName;
-      const url = 'https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(name);
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data.thumbnail?.source) photos[r.Driver.driverId] = data.thumbnail.source;
-    } catch(e) {}
+    const fullName = r.Driver.givenName + ' ' + r.Driver.familyName;
+    const candidates = [
+      fullName,
+      fullName + ' (racing driver)',
+      fullName + ' (Formula One)',
+      r.Driver.familyName
+    ];
+    for (const c of candidates) {
+      const photo = await tryWikiPhoto(c);
+      if (photo) { photos[r.Driver.driverId] = photo; break; }
+    }
   }));
   return photos;
 }
@@ -300,6 +314,7 @@ function renderRace(race, results, laps, pits, driverPhotos) {
       <button class="tab-btn" data-pane="positions">Position tracker</button>
       <button class="tab-btn" data-pane="laptimes">Lap times</button>
       <button class="tab-btn" data-pane="pitstops">Pit stops</button>
+      <button class="tab-btn" data-pane="incidents">Incidents</button>
     </div>
 
     <div id="pane-overview" class="tab-pane active">
@@ -327,7 +342,7 @@ function renderRace(race, results, laps, pits, driverPhotos) {
       <div class="card">
         <div class="card-title">Full results</div>
         <table>
-          <thead><tr><th>Pos</th><th>Driver</th><th>Team</th><th>Laps</th><th>Gap / Time</th><th>Incident / Status</th><th>Pts</th></tr></thead>
+          <thead><tr><th>Pos</th><th>Driver</th><th>Team</th><th>Laps</th><th>Gap / Time</th><th>Pts</th></tr></thead>
           <tbody>
             ${results.map(r => {
               const col = teamColor(r.Constructor.name);
@@ -336,18 +351,17 @@ function renderRace(race, results, laps, pits, driverPhotos) {
               const pitsLabel = pitsCount > 0 ? `<span class="pit-stop">${pitsCount} stop${pitsCount>1?'s':''}</span>` : '';
               const gap = r.position==='1' ? (r.Time?.time || '—') : (r.Time?.time ? '+'+r.Time.time : '—');
               const statusType = classifyStatus(r.status);
-              const incidentHtml = statusType === 'finished'
-                ? '<span class="muted" style="font-size:11px">—</span>'
-                : statusType === 'penalty'
-                  ? `<span class="incident-badge">${r.status}</span>`
-                  : `<span class="dnf-badge">${r.status}</span>`;
+              const statusBadge = statusType === 'penalty'
+                ? `<span class="incident-badge" style="margin-left:6px">${r.status}</span>`
+                : statusType === 'dnf'
+                  ? `<span class="dnf-badge" style="margin-left:6px">${r.status}</span>`
+                  : '';
               return `<tr>
                 <td><span class="pos-badge ${pb}">${r.position}</span></td>
-                <td><span class="driver-name">${r.Driver.givenName[0]}. ${r.Driver.familyName}</span>${pitsLabel}</td>
+                <td><span class="driver-name">${r.Driver.givenName[0]}. ${r.Driver.familyName}</span>${pitsLabel}${statusBadge}</td>
                 <td><span class="muted"><span class="team-dot" style="background:${col}"></span>${r.Constructor.name}</span></td>
                 <td class="muted">${r.laps}</td>
                 <td class="muted" style="font-size:12px">${gap}</td>
-                <td>${incidentHtml}</td>
                 <td style="font-weight:500;color:#fff">${r.points}</td>
               </tr>`;
             }).join('')}
@@ -394,6 +408,38 @@ function renderRace(race, results, laps, pits, driverPhotos) {
             }).join('')}
           </tbody>
         </table>`}
+      </div>
+    </div>
+
+    <div id="pane-incidents" class="tab-pane">
+      <div class="card">
+        <div class="card-title">Incidents, penalties &amp; retirements</div>
+        ${(() => {
+          const flagged = results.filter(r => classifyStatus(r.status) !== 'finished');
+          if (flagged.length === 0) {
+            return '<div class="empty">No incidents, penalties, or retirements recorded for this race.</div>';
+          }
+          return `
+          <table>
+            <thead><tr><th>Driver</th><th>Team</th><th>Final pos</th><th>Type</th><th>Details</th></tr></thead>
+            <tbody>
+              ${flagged.map(r => {
+                const col = teamColor(r.Constructor.name);
+                const statusType = classifyStatus(r.status);
+                const typeLabel = statusType === 'penalty'
+                  ? '<span class="incident-badge">Penalty</span>'
+                  : '<span class="dnf-badge">Retirement</span>';
+                return `<tr>
+                  <td><span class="driver-name">${r.Driver.givenName[0]}. ${r.Driver.familyName}</span></td>
+                  <td><span class="muted"><span class="team-dot" style="background:${col}"></span>${r.Constructor.name}</span></td>
+                  <td class="muted">${r.position}</td>
+                  <td>${typeLabel}</td>
+                  <td class="muted" style="font-size:12px">${r.status} &nbsp;·&nbsp; completed ${r.laps} laps</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>`;
+        })()}
       </div>
     </div>
   `;
