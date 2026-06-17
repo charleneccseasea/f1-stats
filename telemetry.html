@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>F1 Telemetry</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: #f0f0f0; min-height: 100vh; }
+
+    .sidebar {
+      width: 200px; min-height: 100vh; background: #1a1a1a;
+      border-right: 1px solid #2a2a2a; padding: 1.5rem 1rem;
+      position: fixed; top: 0; left: 0;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .sidebar-logo { display: flex; align-items: center; gap: 8px; margin-bottom: 1.5rem; }
+    .f1-badge { background: #e10600; color: #fff; font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 4px; letter-spacing: 1px; }
+    .sidebar-title { font-size: 15px; font-weight: 500; color: #fff; }
+    .sidebar a { text-decoration: none; font-size: 14px; padding: 8px 14px; border-radius: 6px; color: #888; display: block; }
+    .sidebar a:hover { color: #ccc; background: #222; }
+    .sidebar a.active { color: #fff; background: #2a2a2a; border-left: 3px solid #e10600; }
+
+    select { background: #2a2a2a; color: #f0f0f0; border: 1px solid #3a3a3a; border-radius: 6px; padding: 6px 12px; font-size: 14px; cursor: pointer; }
+
+    .main { margin-left: 200px; max-width: 980px; padding: 2rem 1.5rem; }
+
+    .controls-bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; }
+    .controls-bar label { font-size: 13px; color: #888; margin-right: 4px; }
+
+    .race-title { font-size: 20px; font-weight: 600; color: #fff; margin-bottom: 0.25rem; }
+    .race-sub { font-size: 13px; color: #666; margin-bottom: 1.5rem; }
+
+    .grid2 { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 1.5rem; margin-bottom: 1.5rem; align-items: start; }
+    @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+
+    .card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 1.25rem; margin-bottom: 1.5rem; }
+    .card-title { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1rem; }
+
+    .driver-picker { display: flex; flex-direction: column; gap: 4px; max-height: 460px; overflow-y: auto; }
+    .driver-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: background 0.1s; }
+    .driver-row:hover { background: #222; }
+    .driver-row.selected { background: #232323; }
+    .driver-check { width: 14px; height: 14px; border-radius: 3px; border: 1.5px solid #444; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .driver-check.on { border-color: transparent; }
+    .driver-name { font-weight: 500; color: #fff; flex: 1; }
+    .driver-team { font-size: 11px; color: #666; }
+    .lap-time { font-size: 11px; color: #555; font-family: monospace; }
+
+    .map-wrap { position: relative; width: 100%; aspect-ratio: 1; background: #141414; border-radius: 8px; overflow: hidden; }
+    .map-wrap svg { width: 100%; height: 100%; }
+
+    .chart-wrap { position: relative; height: 220px; margin-bottom: 1.25rem; }
+    .chart-wrap:last-child { margin-bottom: 0; }
+    .chart-label { font-size: 12px; color: #888; margin-bottom: 6px; font-weight: 500; }
+
+    .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 1rem; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #aaa; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+    .empty { padding: 2rem; text-align: center; color: #555; font-size: 13px; line-height: 1.6; }
+    .empty code { background: #222; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: #aaa; }
+    .loading { padding: 3rem; text-align: center; color: #555; font-size: 14px; }
+
+    .scrubber-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+    .scrubber-row input[type=range] { flex: 1; }
+    .scrubber-val { font-size: 12px; color: #888; min-width: 70px; text-align: right; font-family: monospace; }
+  </style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <span class="f1-badge">F1</span>
+    <span class="sidebar-title">Stats</span>
+  </div>
+  <a href="index.html">Season standings</a>
+  <a href="race.html">Race analysis</a>
+  <a href="telemetry.html" class="active">Telemetry</a>
+</div>
+
+<div class="main">
+
+  <div class="controls-bar">
+    <label>Data file</label>
+    <select id="fileSel">
+      <option value="data/telemetry_2024_Monza.json">2024 — Monza</option>
+    </select>
+    <span style="font-size:12px;color:#555;margin-left:auto">Real telemetry via FastF1</span>
+  </div>
+
+  <div id="content"><div class="loading">Loading telemetry data...</div></div>
+
+</div>
+
+<script>
+let telemetryData = null;
+let selectedDrivers = [];
+let scrubFraction = 0;
+let charts = [];
+
+function destroyCharts() { charts.forEach(c => c.destroy()); charts = []; }
+
+async function loadData() {
+  const file = document.getElementById('fileSel').value;
+  document.getElementById('content').innerHTML = '<div class="loading">Loading telemetry data...</div>';
+  try {
+    const res = await fetch(file);
+    if (!res.ok) throw new Error('not found');
+    telemetryData = await res.json();
+    const ids = Object.keys(telemetryData.drivers);
+    selectedDrivers = ids.slice(0, 3);
+    renderPage();
+  } catch (e) {
+    document.getElementById('content').innerHTML = `
+      <div class="empty">
+        Could not find <code>${file}</code> in your repo.<br><br>
+        Make sure you ran <code>get_telemetry.py</code> and uploaded the resulting JSON file to a <code>data/</code> folder in your GitHub repo, in the same place as this telemetry.html file.
+      </div>`;
+  }
+}
+
+function renderPage() {
+  const meta = telemetryData.meta;
+  const drivers = telemetryData.drivers;
+  const ids = Object.keys(drivers);
+
+  const html = `
+    <div class="race-title">${meta.event_name}</div>
+    <div class="race-sub">${meta.circuit} &nbsp;·&nbsp; ${meta.year} &nbsp;·&nbsp; Fastest lap telemetry</div>
+
+    <div class="grid2">
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">Track map — speed trace</div>
+        <div class="map-wrap" id="mapWrap"></div>
+        <div class="scrubber-row">
+          <span style="font-size:12px;color:#666">Lap position</span>
+          <input type="range" id="scrubber" min="0" max="1000" value="0">
+          <span class="scrubber-val" id="scrubberVal">Start</span>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">Select drivers to compare (max 5)</div>
+        <div class="driver-picker" id="driverPicker"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="legend" id="chartLegend"></div>
+      <div class="chart-label">Speed (km/h)</div>
+      <div class="chart-wrap"><canvas id="speedChart"></canvas></div>
+      <div class="chart-label">Throttle (%)</div>
+      <div class="chart-wrap"><canvas id="throttleChart"></canvas></div>
+      <div class="chart-label">Brake</div>
+      <div class="chart-wrap"><canvas id="brakeChart"></canvas></div>
+      <div class="chart-label">Gear</div>
+      <div class="chart-wrap"><canvas id="gearChart"></canvas></div>
+    </div>
+  `;
+
+  document.getElementById('content').innerHTML = html;
+
+  const picker = document.getElementById('driverPicker');
+  ids.forEach(id => {
+    const d = drivers[id];
+    const row = document.createElement('div');
+    row.className = 'driver-row' + (selectedDrivers.includes(id) ? ' selected' : '');
+    row.innerHTML = `
+      <div class="driver-check ${selectedDrivers.includes(id) ? 'on' : ''}" style="background:${selectedDrivers.includes(id) ? d.color : 'transparent'}"></div>
+      <span class="driver-name">${d.code}</span>
+      <span class="driver-team">${d.team}</span>
+      <span class="lap-time">${d.lapTime ? d.lapTime.split(' ').pop().slice(3,11) : ''}</span>
+    `;
+    row.addEventListener('click', () => toggleDriver(id));
+    picker.appendChild(row);
+  });
+
+  document.getElementById('scrubber').addEventListener('input', e => {
+    scrubFraction = parseInt(e.target.value) / 1000;
+    updateScrubber();
+  });
+
+  renderMap();
+  renderCharts();
+  updateScrubber();
+}
+
+function toggleDriver(id) {
+  const idx = selectedDrivers.indexOf(id);
+  if (idx >= 0) {
+    selectedDrivers.splice(idx, 1);
+  } else {
+    if (selectedDrivers.length >= 5) return;
+    selectedDrivers.push(id);
+  }
+  renderPage();
+}
+
+function renderMap() {
+  const wrap = document.getElementById('mapWrap');
+  const drivers = telemetryData.drivers;
+
+  // use first selected driver (or first available) for the track outline
+  const refId = selectedDrivers[0] || Object.keys(drivers)[0];
+  const ref = drivers[refId];
+  if (!ref) { wrap.innerHTML = ''; return; }
+
+  const xs = ref.telemetry.x, ys = ref.telemetry.y;
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const pad = 40;
+  const w = 600, h = 600;
+  const scaleX = (w - pad*2) / (maxX - minX);
+  const scaleY = (h - pad*2) / (maxY - minY);
+  const scale = Math.min(scaleX, scaleY);
+
+  function project(x, y) {
+    const px = pad + (x - minX) * scale;
+    const py = h - pad - (y - minY) * scale;
+    return [px, py];
+  }
+
+  let svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">`;
+
+  selectedDrivers.forEach(id => {
+    const d = drivers[id];
+    if (!d) return;
+    const pts = d.telemetry.x.map((x, i) => project(x, d.telemetry.y[i]));
+    const path = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+    svg += `<path d="${path}" fill="none" stroke="${d.color}" stroke-width="3" stroke-linecap="round" opacity="0.85"/>`;
+  });
+
+  // moving dot for scrubber - placed via updateScrubber()
+  selectedDrivers.forEach(id => {
+    svg += `<circle id="dot-${id}" r="6" fill="${drivers[id].color}" stroke="#0f0f0f" stroke-width="2"/>`;
+  });
+
+  svg += '</svg>';
+  wrap.innerHTML = svg;
+  wrap._project = project;
+}
+
+function updateScrubber() {
+  const drivers = telemetryData.drivers;
+  const valEl = document.getElementById('scrubberVal');
+  if (!valEl) return;
+  valEl.textContent = (scrubFraction * 100).toFixed(0) + '% of lap';
+
+  const wrap = document.getElementById('mapWrap');
+  if (!wrap || !wrap._project) return;
+
+  selectedDrivers.forEach(id => {
+    const d = drivers[id];
+    if (!d) return;
+    const n = d.telemetry.x.length;
+    const idx = Math.min(n - 1, Math.floor(scrubFraction * n));
+    const [px, py] = wrap._project(d.telemetry.x[idx], d.telemetry.y[idx]);
+    const dot = document.getElementById('dot-' + id);
+    if (dot) { dot.setAttribute('cx', px); dot.setAttribute('cy', py); }
+  });
+
+  // vertical line on charts could be added later; keep simple for now
+}
+
+function buildDataset(id, field, color) {
+  const d = telemetryData.drivers[id];
+  const dist = d.telemetry.distance;
+  const vals = d.telemetry[field];
+  return {
+    label: d.code,
+    data: dist.map((x, i) => ({ x, y: vals[i] })),
+    borderColor: color,
+    borderWidth: 1.8,
+    pointRadius: 0,
+    tension: 0.15,
+  };
+}
+
+function makeChart(canvasId, field, yLabel, stepped) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  const datasets = selectedDrivers.map(id => buildDataset(id, field, telemetryData.drivers[id].color));
+  const c = new Chart(ctx, {
+    type: 'line',
+    data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      parsing: false,
+      scales: {
+        x: { type: 'linear', title: { display: true, text: 'Distance (m)', color: '#666', font: { size: 11 } }, ticks: { color: '#666' }, grid: { color: '#1e1e1e' } },
+        y: { title: { display: true, text: yLabel, color: '#666', font: { size: 11 } }, ticks: { color: '#666' }, grid: { color: '#1e1e1e' }, stepped: !!stepped }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          mode: 'index', intersect: false,
+          backgroundColor: '#1a1a1a', borderColor: '#2a2a2a', borderWidth: 1,
+          titleColor: '#888', bodyColor: '#fff', titleFont: { size: 11 },
+        }
+      },
+      interaction: { mode: 'index', intersect: false }
+    }
+  });
+  charts.push(c);
+}
+
+function renderCharts() {
+  destroyCharts();
+  const legend = document.getElementById('chartLegend');
+  legend.innerHTML = selectedDrivers.map(id => {
+    const d = telemetryData.drivers[id];
+    return `<div class="legend-item"><div class="legend-dot" style="background:${d.color}"></div>${d.code} — ${d.team}</div>`;
+  }).join('');
+
+  makeChart('speedChart', 'speed', 'km/h');
+  makeChart('throttleChart', 'throttle', '%');
+  makeChart('brakeChart', 'brake', 'on/off', true);
+  makeChart('gearChart', 'gear', 'gear', true);
+}
+
+document.getElementById('fileSel').addEventListener('change', loadData);
+loadData();
+</script>
+
+</body>
+</html>
